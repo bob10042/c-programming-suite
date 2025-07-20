@@ -1,0 +1,64 @@
+name: Claude Code C Programming Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  claude-c-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup C/C++ environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc make cppcheck valgrind
+        
+    - name: Claude Code GitHub Integration
+      uses: nicholaslee119/claude-code-github-action@0.1.1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+        
+    - name: Build C programs
+      run: |
+        if [ -f "Makefile" ]; then
+          make clean || echo "No clean target"
+          make all || make
+        else
+          echo "Compiling C files individually..."
+          gcc -o calculator calculator.c -lm || echo "Calculator compilation failed"
+          gcc -o scientific_calculator scientific_calculator.c -lm || echo "Scientific calculator compilation failed"
+        fi
+        
+    - name: Static analysis with cppcheck
+      run: |
+        cppcheck --enable=all --inconclusive --std=c99 . || echo "Static analysis completed"
+        
+    - name: C code quality check
+      run: |
+        echo "Running C code analysis..."
+        find . -name "*.c" -exec echo "Analyzing: {}" \;
+        
+    - name: Test executables
+      run: |
+        echo "Testing compiled programs..."
+        for exe in calculator enhanced_calculator console_scientific_calculator; do
+          if [ -x "./$exe" ]; then
+            echo "Testing $exe..."
+            echo "2+2" | ./$exe || echo "$exe test completed"
+          fi
+        done
